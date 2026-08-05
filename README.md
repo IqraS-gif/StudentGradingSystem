@@ -208,18 +208,11 @@ Student Input
 
 ---
 
-## ⚖️ Design Tradeoffs
-
-| Tradeoff | Decision Made | Rationale |
-|:---|:---|:---|
-| **Speed vs. Security depth** | Two-tier LLM scan (fast cheap model first, full model only on safe inputs) | A single powerful LLM on every input would add ~2–3s per request. The fast gate keeps guardrail latency under 500ms for clean submissions while maintaining probabilistic coverage for edge cases. |
-| **Client-side filtering vs. scoped API queries** | Fetch all submissions once, filter by problem on the client | A per-problem API query on each dropdown change caused stale counts and extra round-trips. Client-side filtering after a single fetch keeps the roster view instant and consistent. |
-
 ---
 
 ## 🔧 Work in Progress
 
-- **Multilingual Prompt Injection Detection** — Current rule-based CSV scanner and classifier are trained primarily on English-language injection patterns. Extending detection to Arabic, Urdu, French, and other languages used by students in multilingual classrooms is actively being researched.
+- **Multilingual Prompt Injection Detection** — Initial testing completed. The current pipeline correctly identifies injection attempts in ~75% of non-English inputs (Arabic, Urdu, French) tested so far. The LLM-based classifier in Layer 3 generalises reasonably well across languages; the main gap is the CSV rule scanner, which remains English-only and is the next target for expansion.
 
 ---
 
