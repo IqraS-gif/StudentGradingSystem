@@ -105,19 +105,23 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
   // Helper to render Suggested Approach as a clean numbered list
   const renderSuggestedSteps = (text) => {
     if (!text) return null;
-    const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const cleanText = text
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1');
+
+    const rawLines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
     let items = [];
-    if (rawLines.length > 1 && rawLines.some(l => /^(Step\s*\d+|\d+[\.\)])/i.test(l))) {
-      items = rawLines.map(l => l.replace(/^(Step\s*\d+:\s*|\d+[\.\)]\s*)/i, ''));
+    if (rawLines.length > 1 && rawLines.some(l => /^(Step\s*\d+|\d+[\.\)]|\*|-)/i.test(l))) {
+      items = rawLines.map(l => l.replace(/^(Step\s*\d+:\s*|\d+[\.\)]\s*|\*|-)\s*/i, ''));
     } else {
-      items = text.split(/(?<=[.!?])\s+(?=[A-Z0-9])|\n+/).map(s => s.trim()).filter(s => s.length > 4);
+      items = cleanText.split(/(?<=[.!?])\s+(?=[A-Z0-9])|\n+/).map(s => s.trim()).filter(s => s.length > 4);
     }
     
     return (
-      <ol style={{ margin: 0, paddingLeft: '1.2rem', color: '#14532d', fontSize: '0.84rem', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+      <ol style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.84rem', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
         {items.map((item, idx) => (
           <li key={idx} style={{ paddingLeft: '0.2rem' }}>
-            {item.replace(/^(Step\s*\d+:\s*|\d+[\.\)]\s*)/i, '')}
+            {item.replace(/^(Step\s*\d+:\s*|\d+[\.\)]\s*|\*|-)\s*/i, '')}
           </li>
         ))}
       </ol>
@@ -652,11 +656,14 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
                           <div style={{ fontWeight: 700, color: '#15803d', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                             <CheckCircle2 size={15} /> Why this works
                           </div>
-                          <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#14532d', fontSize: '0.8rem', lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                          <ul style={{ margin: 0, paddingLeft: '1.1rem', color: '#14532d', fontSize: '0.8rem', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                             {whyWorks
+                              .replace(/\*\*(.*?)\*\*/g, '$1')
+                              .replace(/\*(.*?)\*/g, '$1')
                               .split(/(?<=[.!?])\s+(?=[A-Z0-9])|\n+/)
-                              .map(s => s.trim())
+                              .map(s => s.trim().replace(/^[\*\-•]\s*/, ''))
                               .filter(s => s.length > 8)
+                              .slice(0, 4)
                               .map((point, i) => (
                                 <li key={i}>{point}</li>
                               ))
@@ -677,16 +684,27 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
                               </tr>
                             </thead>
                             <tbody>
-                              <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
-                                <td style={{ padding: '0.3rem 0.2rem', fontWeight: 600 }}>{comp.naiveName}</td>
-                                <td style={{ padding: '0.3rem 0.2rem', color: '#dc2626', fontWeight: 700 }} className="font-mono">{comp.naiveTime}</td>
-                                <td style={{ padding: '0.3rem 0.2rem', color: '#dc2626', fontWeight: 700 }} className="font-mono">{comp.naiveSpace}</td>
-                              </tr>
-                              <tr>
-                                <td style={{ padding: '0.3rem 0.2rem', fontWeight: 600 }}>{comp.optName}</td>
-                                <td style={{ padding: '0.3rem 0.2rem', color: '#16a34a', fontWeight: 700 }} className="font-mono">{comp.optTime}</td>
-                                <td style={{ padding: '0.3rem 0.2rem', color: '#16a34a', fontWeight: 700 }} className="font-mono">{comp.optSpace}</td>
-                              </tr>
+                              {(() => {
+                                // Extract just the O(...) expression, strip any trailing explanation
+                                const bigo = (val) => {
+                                  if (!val) return 'O(?)';
+                                  const clean = val.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+                                  const m = clean.match(/O\([^)]+\)/i);
+                                  return m ? m[0] : clean.split(/[\s,;]/)[0];
+                                };
+                                return (<>
+                                  <tr style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                    <td style={{ padding: '0.3rem 0.2rem', fontWeight: 600 }}>{comp.naiveName}</td>
+                                    <td style={{ padding: '0.3rem 0.2rem', color: '#dc2626', fontWeight: 700 }} className="font-mono">{bigo(comp.naiveTime)}</td>
+                                    <td style={{ padding: '0.3rem 0.2rem', color: '#dc2626', fontWeight: 700 }} className="font-mono">{bigo(comp.naiveSpace)}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ padding: '0.3rem 0.2rem', fontWeight: 600 }}>{comp.optName}</td>
+                                    <td style={{ padding: '0.3rem 0.2rem', color: '#16a34a', fontWeight: 700 }} className="font-mono">{bigo(comp.optTime)}</td>
+                                    <td style={{ padding: '0.3rem 0.2rem', color: '#16a34a', fontWeight: 700 }} className="font-mono">{bigo(comp.optSpace)}</td>
+                                  </tr>
+                                </>);
+                              })()}
                             </tbody>
                           </table>
                         </div>
