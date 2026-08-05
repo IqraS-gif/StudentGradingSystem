@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User, Mail, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Lock, User, Mail, Eye, EyeOff, BookOpen, ShieldAlert } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, register } = useAuth();
@@ -34,23 +34,26 @@ export default function LoginPage() {
     if (demoRole === 'student') {
       setEmail('student@kpmg.com');
       setPassword('student123');
-    } else {
+    } else if (demoRole === 'teacher') {
       setEmail('teacher@kpmg.com');
       setPassword('teacher123');
+    } else if (demoRole === 'admin') {
+      setEmail('admin@codeshield.ai');
+      setPassword('admin123');
     }
     setMode('login');
   };
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <div style={{ maxWidth: '420px', width: '100%' }}>
+      <div style={{ maxWidth: '440px', width: '100%' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ width: '52px', height: '52px', backgroundColor: '#2563eb', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#ffffff', fontWeight: 700, fontSize: '1.3rem' }}>
-            GP
+          <div style={{ width: '52px', height: '52px', backgroundColor: '#2563eb', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#ffffff', fontWeight: 800, fontSize: '1.3rem' }}>
+            CS
           </div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>GradingPulse AI</h1>
-          <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Enterprise LMS — Code Grading & AI Doubt Portal</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.25rem' }}>CodeShield AI</h1>
+          <p style={{ fontSize: '0.85rem', color: '#64748b' }}>Enterprise LMS — Safety Guardrail &amp; AI Portal</p>
         </div>
 
         {/* Login Card */}
@@ -108,6 +111,7 @@ export default function LoginPage() {
                 <select className="form-select" value={role} onChange={e => setRole(e.target.value)}>
                   <option value="student">Student</option>
                   <option value="teacher">Teacher / Instructor</option>
+                  <option value="admin">Security Admin</option>
                 </select>
               </div>
             )}
@@ -117,15 +121,20 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
+          {/* Quick Demo Credentials */}
           <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)' }}>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textAlign: 'center', marginBottom: '0.75rem', fontWeight: 600 }}>QUICK DEMO ACCESS</p>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }} onClick={() => fillDemo('student')}>
-                <User size={14} /> Fill Student Demo
+            <p style={{ fontSize: '0.73rem', color: 'var(--text-subtle)', textAlign: 'center', marginBottom: '0.75rem', fontWeight: 700, letterSpacing: '0.04em' }}>
+              QUICK DEMO ACCESSIBILITY
+            </p>
+            <div style={{ display: 'flex', gap: '0.4rem' }}>
+              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.74rem', padding: '0.35rem 0.4rem' }} onClick={() => fillDemo('student')}>
+                <User size={13} /> Student
               </button>
-              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.78rem' }} onClick={() => fillDemo('teacher')}>
-                <BookOpen size={14} /> Fill Teacher Demo
+              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.74rem', padding: '0.35rem 0.4rem' }} onClick={() => fillDemo('teacher')}>
+                <BookOpen size={13} /> Teacher
+              </button>
+              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', fontSize: '0.74rem', padding: '0.35rem 0.4rem', color: '#dc2626', borderColor: '#fecaca', backgroundColor: '#fef2f2' }} onClick={() => fillDemo('admin')}>
+                <ShieldAlert size={13} color="#dc2626" /> Admin
               </button>
             </div>
           </div>

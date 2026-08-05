@@ -10,7 +10,7 @@ router.use(protect);
 
 router.route('/')
   .get(getDoubts)
-  .post(authorize('student'), createDoubt);
+  .post(authorize('student', 'admin'), createDoubt);
 
 router.route('/:id')
   .get(getDoubt);

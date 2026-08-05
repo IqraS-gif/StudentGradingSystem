@@ -7,6 +7,6 @@ router.use(protect);
 
 router.get('/student', getStudentAnalytics);
 router.get('/teacher', authorize('teacher'), getTeacherAnalytics);
-router.get('/audit-logs', authorize('teacher'), getAuditLogs);
+router.get('/audit-logs', getAuditLogs);
 
 module.exports = router;

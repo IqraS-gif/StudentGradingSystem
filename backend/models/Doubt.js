@@ -18,7 +18,7 @@ const AIDraftSchema = new mongoose.Schema({
   resources: [String],
   langchainPromptUsed: String,   // Stores the actual LangChain prompt template sent to LLM
   mem0ContextUsed: mongoose.Schema.Types.Mixed,
-  generatedBy: { type: String, default: 'gemini-1.5-flash' }
+  generatedBy: { type: String, default: 'gemini-2.5-flash' }
 }, { _id: false });
 
 const TeacherReviewSchema = new mongoose.Schema({
