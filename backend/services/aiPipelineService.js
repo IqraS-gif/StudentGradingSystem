@@ -35,12 +35,11 @@ const {
 } = require('./guardrailService');
 const { getStudentContext } = require('./mem0Service');
 
-// Initialize Gemini AI SDK
+// Initialize Gemini AI SDK — uses first valid key from comma-separated list
 const getGeminiClient = () => {
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-    return null;
-  }
-  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const firstKey = (process.env.GEMINI_API_KEY || '').split(',')[0].trim();
+  if (!firstKey || firstKey === 'your_gemini_api_key_here') return null;
+  return new GoogleGenerativeAI(firstKey);
 };
 
 // ============================================================
@@ -178,34 +177,41 @@ function buildDoubtAnswerPrompt(sanitizedTitle, sanitizedDesc, codeSnippet, lang
 }
 
 // Helper functions to retrieve all available Gemini and Groq API keys from env
+// Supports: GEMINI_API_KEY=k1,k2,k3  OR  GEMINI_API_KEY_2=k2  OR  GEMINI_API_KEYS=k1,k2,k3
 function getGeminiKeys() {
   const keys = [];
-  if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('your_gemini')) {
-    keys.push(process.env.GEMINI_API_KEY.trim());
+  const addKey = (k) => { if (k && !k.includes('your_gemini') && !keys.includes(k)) keys.push(k); };
+  // Primary key — may be comma-separated
+  if (process.env.GEMINI_API_KEY) {
+    process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(Boolean).forEach(addKey);
   }
+  // Numbered keys GEMINI_API_KEY_2 … GEMINI_API_KEY_10
   for (let i = 2; i <= 10; i++) {
-    const k = process.env[`GEMINI_API_KEY_${i}`];
-    if (k && !k.includes('your_gemini') && !keys.includes(k.trim())) keys.push(k.trim());
+    const k = (process.env[`GEMINI_API_KEY_${i}`] || '').trim();
+    if (k) addKey(k);
   }
+  // Bulk comma-separated list GEMINI_API_KEYS
   if (process.env.GEMINI_API_KEYS) {
-    const list = process.env.GEMINI_API_KEYS.split(',').map(s => s.trim()).filter(Boolean);
-    list.forEach(k => { if (!keys.includes(k)) keys.push(k); });
+    process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean).forEach(addKey);
   }
   return keys;
 }
 
 function getGroqKeys() {
   const keys = [];
-  if (process.env.GROQ_API_KEY && !process.env.GROQ_API_KEY.includes('your_groq')) {
-    keys.push(process.env.GROQ_API_KEY.trim());
+  const addKey = (k) => { if (k && !k.includes('your_groq') && !keys.includes(k)) keys.push(k); };
+  // Primary key — may be comma-separated
+  if (process.env.GROQ_API_KEY) {
+    process.env.GROQ_API_KEY.split(',').map(k => k.trim()).filter(Boolean).forEach(addKey);
   }
+  // Numbered keys GROQ_API_KEY_2 … GROQ_API_KEY_10
   for (let i = 2; i <= 10; i++) {
-    const k = process.env[`GROQ_API_KEY_${i}`];
-    if (k && !k.includes('your_groq') && !keys.includes(k.trim())) keys.push(k.trim());
+    const k = (process.env[`GROQ_API_KEY_${i}`] || '').trim();
+    if (k) addKey(k);
   }
+  // Bulk comma-separated list GROQ_API_KEYS
   if (process.env.GROQ_API_KEYS) {
-    const list = process.env.GROQ_API_KEYS.split(',').map(s => s.trim()).filter(Boolean);
-    list.forEach(k => { if (!keys.includes(k)) keys.push(k); });
+    process.env.GROQ_API_KEYS.split(',').map(k => k.trim()).filter(Boolean).forEach(addKey);
   }
   return keys;
 }
