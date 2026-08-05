@@ -8,9 +8,12 @@ import SecurityAdminModule from './components/SecurityAdminModule';
 import AnalyticsModule from './components/AnalyticsModule';
 import { problemsAPI, doubtsAPI, analyticsAPI } from './services/api';
 
+import HomePage from './pages/HomePage';
+
 function AppContent() {
   const { user, loading, logout, updateMem0 } = useAuth();
   const [currentTab, setCurrentTab] = useState('grading');
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
 
   // App-level state — from backend
   const [problems, setProblems] = useState([]);
@@ -71,7 +74,10 @@ function AppContent() {
   }
 
   if (!user) {
-    return <LoginPage />;
+    if (showAuthScreen) {
+      return <LoginPage onBackToHome={() => setShowAuthScreen(false)} />;
+    }
+    return <HomePage onStartNow={() => setShowAuthScreen(true)} />;
   }
 
   return (

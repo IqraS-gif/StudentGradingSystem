@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User, Mail, Eye, EyeOff, BookOpen, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Lock, User, Mail, Eye, EyeOff, BookOpen, ShieldAlert } from 'lucide-react';
 
-export default function LoginPage() {
+export default function LoginPage({ onBackToHome }) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [name, setName] = useState('');
@@ -45,7 +45,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', position: 'relative' }}>
+      {onBackToHome && (
+        <button
+          type="button"
+          onClick={onBackToHome}
+          style={{
+            position: 'absolute',
+            top: '1.5rem',
+            left: '1.5rem',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '0.45rem 0.9rem',
+            fontSize: '0.82rem',
+            fontWeight: 700,
+            color: '#475569',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Overview
+        </button>
+      )}
+
       <div style={{ maxWidth: '440px', width: '100%' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
