@@ -57,15 +57,8 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    service: 'GradingPulse AI Backend',
-    version: '1.0.0',
-    timestamp: new Date().toISOString()
-  });
-});
+// Health check (minimal — used by Render uptime monitoring)
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
