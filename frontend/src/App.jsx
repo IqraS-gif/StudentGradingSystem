@@ -47,9 +47,9 @@ function AppContent() {
       .catch(err => console.error('[App] Doubts fetch error:', err.message));
   }, [user, currentTab]);
 
-  // Fetch analytics when on analytics tab
+  // Fetch analytics data
   useEffect(() => {
-    if (!user || currentTab !== 'analytics') return;
+    if (!user) return;
     const fn = user.role === 'teacher' ? analyticsAPI.teacher : analyticsAPI.student;
     fn()
       .then(data => setAnalyticsData(data.analytics))
@@ -101,6 +101,7 @@ function AppContent() {
         {currentTab === 'grading' && !dataLoading && (
           <CodeGradingModule
             problems={problems}
+            setProblems={setProblems}
             activeRole={user.role}
           />
         )}

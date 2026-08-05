@@ -57,6 +57,14 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials.' });
     }
 
+    if (user.isBlacklisted) {
+      return res.status(403).json({
+        success: false,
+        accountBlocked: true,
+        message: '⛔ Account permanently blacklisted due to prompt injection security violations.'
+      });
+    }
+
     sendToken(user, 200, res);
   } catch (err) {
     next(err);

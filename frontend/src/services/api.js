@@ -19,6 +19,13 @@ async function request(endpoint, options = {}) {
   });
 
   const data = await res.json();
+  if (data.accountBlocked || (res.status === 403 && data.message?.includes('blacklisted'))) {
+    localStorage.removeItem('gp_token');
+    localStorage.removeItem('gp_user');
+    alert(data.message || '⛔ ACCOUNT PERMANENTLY BLACKLISTED: Prompt injection security violation detected. Your account has been suspended and logged out.');
+    window.location.reload();
+  }
+
   if (!res.ok) {
     const err = new Error(data.message || 'Request failed');
     err.status = res.status;
@@ -39,7 +46,8 @@ export const authAPI = {
 // Problems
 export const problemsAPI = {
   getAll: () => request('/problems'),
-  getById: (id) => request(`/problems/${id}`)
+  getById: (id) => request(`/problems/${id}`),
+  create: (body) => request('/problems', { method: 'POST', body: JSON.stringify(body) })
 };
 
 // Submissions
@@ -64,5 +72,10 @@ export const doubtsAPI = {
 export const analyticsAPI = {
   student: () => request('/analytics/student'),
   teacher: () => request('/analytics/teacher'),
-  auditLogs: (params = '') => request(`/analytics/audit-logs${params}`)
+  auditLogs: (params = '') => request(`/analytics/audit-logs${params ? (params.startsWith('?') ? params : `?${params}`) : ''}`),
+  getAuditLogs: (params = '') => request(`/analytics/audit-logs${params ? (params.startsWith('?') ? params : `?${params}`) : ''}`),
+  getSettings: () => request('/analytics/settings'),
+  updateSettings: (body) => request('/analytics/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  getBlacklistedUsers: () => request('/analytics/blacklisted-users'),
+  unblacklistUser: (id) => request(`/analytics/unblacklist-user/${id}`, { method: 'PATCH' })
 };

@@ -21,6 +21,13 @@ exports.protect = async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ success: false, message: 'User account no longer exists.' });
     }
+    if (req.user.isBlacklisted) {
+      return res.status(403).json({
+        success: false,
+        accountBlocked: true,
+        message: '⛔ Account permanently blacklisted due to prompt injection security violations.'
+      });
+    }
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Invalid or expired token.' });

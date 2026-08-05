@@ -4,6 +4,17 @@ const { runDoubtResolutionPipeline } = require('../services/aiPipelineService');
 const { storeMemory } = require('../services/mem0Service');
 const { runGuardrailPipeline } = require('../services/guardrailService');
 
+const systemSettingsService = require('../services/systemSettingsService');
+const User = require('../models/User');
+
+async function checkAndBlacklist(userId) {
+  if (systemSettingsService.getSettings().autoBlacklistOnInjection) {
+    await User.findByIdAndUpdate(userId, { isBlacklisted: true, blacklistedAt: new Date() });
+    return true;
+  }
+  return false;
+}
+
 // @route   POST /api/doubts
 // @access  Private/Student
 exports.createDoubt = async (req, res, next) => {
@@ -20,6 +31,7 @@ exports.createDoubt = async (req, res, next) => {
 
     if (guardrailReport.blocked) {
       const report = guardrailReport.securityReport;
+      const accountBlocked = await checkAndBlacklist(req.user.id);
 
       await AuditLog.create({
         user: req.user.id,
@@ -37,7 +49,10 @@ exports.createDoubt = async (req, res, next) => {
       return res.status(200).json({
         success: false,
         blocked: true,
-        message: `Prompt injection blocked by guardrail (${guardrailReport.stage}): ${report.attackType} — Risk ${report.riskScore}%`,
+        accountBlocked,
+        message: accountBlocked
+          ? '⛔ ACCOUNT PERMANENTLY BLACKLISTED: Prompt injection security violation detected. Your account has been suspended and logged out immediately.'
+          : `Prompt injection blocked by guardrail (${guardrailReport.stage}): ${report.attackType} — Risk ${report.riskScore}%`,
         securityReport: report
       });
     }

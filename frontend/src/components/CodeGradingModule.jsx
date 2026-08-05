@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Play, CheckCircle2, XCircle, AlertTriangle, Cpu, History, Award, Code2, ShieldAlert, Sparkles, BookOpen, FileText, Lightbulb, Check, UserCheck, Search, Filter, Edit3, Save, X, Terminal, ChevronUp, ChevronDown } from 'lucide-react';
-import { submissionsAPI } from '../services/api';
+import { Play, CheckCircle2, XCircle, AlertTriangle, Cpu, History, Award, Code2, ShieldAlert, Sparkles, BookOpen, FileText, Lightbulb, Check, UserCheck, Search, Filter, Edit3, Save, X, Terminal, ChevronUp, ChevronDown, PlusCircle } from 'lucide-react';
+import { submissionsAPI, problemsAPI } from '../services/api';
 
-export default function CodeGradingModule({ problems, activeRole }) {
-  const isTeacher = activeRole === 'teacher';
+export default function CodeGradingModule({ problems, setProblems, activeRole }) {
+  const isTeacher = activeRole === 'teacher' || activeRole === 'admin';
   
   // Teacher mode views: 'roster' | 'studentPreview'
-  const [teacherView, setTeacherView] = useState(isTeacher ? 'roster' : 'studentPreview');
+  const [teacherView, setTeacherView] = useState(activeRole === 'teacher' ? 'roster' : 'studentPreview');
 
   const [mode, setMode] = useState('assessment'); // 'assessment' | 'practice'
   const [selectedProblemId, setSelectedProblemId] = useState(problems?.[0]?._id || problems?.[0]?.id || '');
@@ -34,6 +34,47 @@ export default function CodeGradingModule({ problems, activeRole }) {
   const [teacherNotes, setTeacherNotes] = useState('');
   const [isSavingGrade, setIsSavingGrade] = useState(false);
 
+  // Create Problem Modal State (Teacher / Admin)
+  const [showCreateProblemModal, setShowCreateProblemModal] = useState(false);
+  const [newProbTitle, setNewProbTitle] = useState('');
+  const [newProbDifficulty, setNewProbDifficulty] = useState('Easy');
+  const [newProbCategory, setNewProbCategory] = useState('Arrays');
+  const [newProbDescription, setNewProbDescription] = useState('');
+  const [newProbConstraints, setNewProbConstraints] = useState('1 <= nums.length <= 10^4');
+  
+  // Starter Code Templates for Python, Java, C++
+  const [activeStarterLang, setActiveStarterLang] = useState('python');
+  const [newProbPythonCode, setNewProbPythonCode] = useState('def solution():\n    # Write Python solution\n    pass');
+  const [newProbJavaCode, setNewProbJavaCode] = useState('public class Solution {\n    public static void main(String[] args) {\n        // Write Java solution\n    }\n}');
+  const [newProbCppCode, setNewProbCppCode] = useState('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write C++ solution\n    return 0;\n}');
+
+  // Dynamic Test Cases with Public/Private (Hidden) Toggle
+  const [newProbTestCases, setNewProbTestCases] = useState([
+    { input: '[2, 7, 11, 15], target = 9', expectedOutput: '[0, 1]', isHidden: false },
+    { input: '[3, 2, 4], target = 6', expectedOutput: '[1, 2]', isHidden: true }
+  ]);
+
+  const [isCreatingProblem, setIsCreatingProblem] = useState(false);
+
+  const handleAddTestCase = () => {
+    setNewProbTestCases(prev => [
+      ...prev,
+      { input: '', expectedOutput: '', isHidden: prev.length >= 1 }
+    ]);
+  };
+
+  const handleRemoveTestCase = (index) => {
+    if (newProbTestCases.length <= 1) {
+      alert('At least 1 test case is required.');
+      return;
+    }
+    setNewProbTestCases(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleTestCaseChange = (index, field, value) => {
+    setNewProbTestCases(prev => prev.map((tc, i) => i === index ? { ...tc, [field]: value } : tc));
+  };
+
   // Filters for Teacher Roster
   const [rosterFilterProblem, setRosterFilterProblem] = useState('ALL');
   const [rosterSearchStudent, setRosterSearchStudent] = useState('');
@@ -49,8 +90,10 @@ export default function CodeGradingModule({ problems, activeRole }) {
   };
 
   useEffect(() => {
-    loadSubmissions();
-  }, [selectedProblemId, isTeacher]);
+    if (selectedProblemId || isTeacher) {
+      loadSubmissions();
+    }
+  }, [selectedProblemId, teacherView, isTeacher]);
 
   // Sync state when problems list arrives
   useEffect(() => {
@@ -68,12 +111,12 @@ export default function CodeGradingModule({ problems, activeRole }) {
 
   const handleProblemChange = (probId) => {
     setSelectedProblemId(probId);
-    const prob = problems?.find(p => (p._id || p.id) === probId);
-    if (prob) {
-      setUserCode(prob.starterCode?.[language] || prob.starterCode?.python || '');
-      setCurrentExecution(null);
-      setRightBottomTab('testcase');
+    const prob = problems.find(p => (p._id || p.id) === probId);
+    if (prob && prob.starterCode) {
+      setUserCode(prob.starterCode[language] || prob.starterCode.python || '');
     }
+    setCurrentExecution(null);
+    setLeftTab('description');
   };
 
   const PRACTICE_STARTER_CODE = {
@@ -95,7 +138,9 @@ export default function CodeGradingModule({ problems, activeRole }) {
     setApiError('');
     setIsExecuting(true);
     setShowConsole(true);
+    setLeftTab('aiReview'); // Switch immediately to AI Qualitative Review tab
     setRightBottomTab('result');
+
     try {
       const probId = currentProblem?._id || currentProblem?.id;
       const payload = mode === 'practice'
@@ -104,6 +149,14 @@ export default function CodeGradingModule({ problems, activeRole }) {
 
       const data = await submissionsAPI.submit(payload);
       const sub = data.submission;
+
+      if (data.accountBlocked || sub?.errorMessage?.includes('BLACKISTED') || sub?.errorMessage?.includes('blacklisted') || sub?.errorMessage?.includes('BLACKISTED')) {
+        localStorage.removeItem('gp_token');
+        localStorage.removeItem('gp_user');
+        alert(sub?.errorMessage || '⛔ ACCOUNT PERMANENTLY BLACKLISTED due to prompt injection security violations.');
+        window.location.reload();
+        return;
+      }
 
       setCurrentExecution({
         mode: sub.mode || mode,
@@ -126,6 +179,51 @@ export default function CodeGradingModule({ problems, activeRole }) {
       setApiError(err.message || 'Submission failed');
     } finally {
       setIsExecuting(false);
+    }
+  };
+
+  const handleCreateProblemSubmit = async (e) => {
+    e.preventDefault();
+    if (!newProbTitle.trim() || !newProbDescription.trim()) {
+      alert('Problem title and description are required.');
+      return;
+    }
+    const validTestCases = newProbTestCases.filter(tc => tc.input.trim() && tc.expectedOutput.trim());
+    if (validTestCases.length === 0) {
+      alert('Please add at least 1 valid test case with non-empty input and output.');
+      return;
+    }
+    setIsCreatingProblem(true);
+    try {
+      const payload = {
+        title: newProbTitle.trim(),
+        difficulty: newProbDifficulty,
+        category: newProbCategory.trim() || 'General',
+        description: newProbDescription.trim(),
+        constraints: newProbConstraints.split(',').map(s => s.trim()).filter(Boolean),
+        starterCode: {
+          python: newProbPythonCode || 'def solution():\n    pass',
+          java: newProbJavaCode || 'public class Solution {\n    public static void main(String[] args) {}\n}',
+          cpp: newProbCppCode || '#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}'
+        },
+        testCases: validTestCases
+      };
+
+      const data = await problemsAPI.create(payload);
+      const created = data.problem;
+
+      if (setProblems) {
+        setProblems(prev => [created, ...prev]);
+      }
+      setSelectedProblemId(created._id || created.id);
+      setTeacherView('studentPreview');
+      setNewProbTitle('');
+      setNewProbDescription('');
+      alert(`✅ New Problem "${created.title}" published successfully! (${validTestCases.length} Test Cases configured across Python, Java & C++).`);
+    } catch (err) {
+      alert(`Failed to create problem: ${err.message}`);
+    } finally {
+      setIsCreatingProblem(false);
     }
   };
 
@@ -232,6 +330,334 @@ export default function CodeGradingModule({ problems, activeRole }) {
   // ============================================================
   // TEACHER COMMAND CENTER VIEW (Professor Role View)
   // ============================================================
+  if (isTeacher && teacherView === 'createProblem') {
+    return (
+      <div className="leetcode-workspace" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Teacher Toolbar */}
+        <div className="leetcode-toolbar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              className="leetcode-tab-btn"
+              style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 700 }}
+              onClick={() => setTeacherView('roster')}
+            >
+              ← Back to Professor Roster
+            </button>
+            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <PlusCircle size={18} color="#2563eb" /> Problem Creation Studio &amp; Publishing Portal
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              className="leetcode-tab-btn"
+              onClick={() => setTeacherView('roster')}
+            >
+              <FileText size={14} /> Class Submissions Roster ({submissions.length})
+            </button>
+            <button
+              className="leetcode-tab-btn active"
+              style={{ backgroundColor: '#2563eb', color: '#ffffff', fontWeight: 700 }}
+              onClick={() => setTeacherView('createProblem')}
+            >
+              <PlusCircle size={14} /> Create New Problem
+            </button>
+            <button
+              className="leetcode-tab-btn"
+              onClick={() => setTeacherView('studentPreview')}
+            >
+              <Code2 size={14} /> Student IDE Preview
+            </button>
+          </div>
+        </div>
+
+        {/* Full-Page Problem Creation Form */}
+        <div className="card-panel" style={{ padding: '1.5rem', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.85rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <PlusCircle size={22} color="#2563eb" /> Create &amp; Publish New Problem
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-subtle)', marginTop: '0.2rem' }}>
+                Define title, difficulty, category, problem description, starter code templates for Python/Java/C++, and public/private evaluation test cases.
+              </p>
+            </div>
+            <button
+              className="btn-secondary"
+              onClick={() => setTeacherView('roster')}
+            >
+              Cancel &amp; Return to Roster
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateProblemSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700, fontSize: '0.9rem' }}>Problem Title *</label>
+              <input
+                type="text"
+                className="form-input"
+                style={{ fontSize: '0.95rem', padding: '0.65rem 0.85rem', fontWeight: 600 }}
+                placeholder="e.g. Reverse Linked List, Binary Search Tree Validation, Two Sum"
+                required
+                value={newProbTitle}
+                onChange={(e) => setNewProbTitle(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Difficulty Rating *</label>
+                <select
+                  className="form-select"
+                  style={{ fontWeight: 700 }}
+                  value={newProbDifficulty}
+                  onChange={(e) => setNewProbDifficulty(e.target.value)}
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Category / Topic Tag *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Arrays, Strings, Trees, Dynamic Programming"
+                  value={newProbCategory}
+                  onChange={(e) => setNewProbCategory(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700 }}>Problem Description &amp; Specifications *</label>
+              <textarea
+                className="form-textarea"
+                rows={5}
+                style={{ lineHeight: 1.6 }}
+                placeholder="Write the complete problem statement, input formats, output requirements, and example walk-throughs..."
+                required
+                value={newProbDescription}
+                onChange={(e) => setNewProbDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700 }}>Constraints (comma-separated)</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. 1 <= N <= 10^5, -10^9 <= arr[i] <= 10^9, Memory Limit: 256MB"
+                value={newProbConstraints}
+                onChange={(e) => setNewProbConstraints(e.target.value)}
+              />
+            </div>
+
+            {/* Starter Code Templates with Multi-Language Switching */}
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Starter Code Templates Studio
+                  </h4>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+                    Switch tabs to customize initial boilerplate code for each programming language.
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className={`btn-secondary ${activeStarterLang === 'python' ? 'active' : ''}`}
+                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', fontWeight: 700, backgroundColor: activeStarterLang === 'python' ? '#eff6ff' : '#f8fafc', color: activeStarterLang === 'python' ? '#1d4ed8' : '#64748b', borderColor: activeStarterLang === 'python' ? '#bfdbfe' : '#e2e8f0' }}
+                    onClick={() => setActiveStarterLang('python')}
+                  >
+                    🐍 Python 3
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary ${activeStarterLang === 'java' ? 'active' : ''}`}
+                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', fontWeight: 700, backgroundColor: activeStarterLang === 'java' ? '#eff6ff' : '#f8fafc', color: activeStarterLang === 'java' ? '#1d4ed8' : '#64748b', borderColor: activeStarterLang === 'java' ? '#bfdbfe' : '#e2e8f0' }}
+                    onClick={() => setActiveStarterLang('java')}
+                  >
+                    ☕ Java
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn-secondary ${activeStarterLang === 'cpp' ? 'active' : ''}`}
+                    style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', fontWeight: 700, backgroundColor: activeStarterLang === 'cpp' ? '#eff6ff' : '#f8fafc', color: activeStarterLang === 'cpp' ? '#1d4ed8' : '#64748b', borderColor: activeStarterLang === 'cpp' ? '#bfdbfe' : '#e2e8f0' }}
+                    onClick={() => setActiveStarterLang('cpp')}
+                  >
+                    ⚡ C++
+                  </button>
+                </div>
+              </div>
+
+              {activeStarterLang === 'python' && (
+                <div className="form-group">
+                  <textarea
+                    className="form-textarea font-mono"
+                    rows={5}
+                    style={{ fontSize: '0.85rem', backgroundColor: '#0f172a', color: '#f8fafc', lineHeight: 1.5 }}
+                    placeholder="Python 3 starter code template..."
+                    value={newProbPythonCode}
+                    onChange={(e) => setNewProbPythonCode(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {activeStarterLang === 'java' && (
+                <div className="form-group">
+                  <textarea
+                    className="form-textarea font-mono"
+                    rows={5}
+                    style={{ fontSize: '0.85rem', backgroundColor: '#0f172a', color: '#f8fafc', lineHeight: 1.5 }}
+                    placeholder="Java starter code template..."
+                    value={newProbJavaCode}
+                    onChange={(e) => setNewProbJavaCode(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {activeStarterLang === 'cpp' && (
+                <div className="form-group">
+                  <textarea
+                    className="form-textarea font-mono"
+                    rows={5}
+                    style={{ fontSize: '0.85rem', backgroundColor: '#0f172a', color: '#f8fafc', lineHeight: 1.5 }}
+                    placeholder="C++ starter code template..."
+                    value={newProbCppCode}
+                    onChange={(e) => setNewProbCppCode(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Dynamic Evaluation Test Cases Suite */}
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <div>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Evaluation Test Cases Suite ({newProbTestCases.length})
+                  </h4>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+                    Configure public sample test cases &amp; private hidden test cases for automated sandbox grading.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ fontSize: '0.8rem', fontWeight: 700, padding: '0.35rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#2563eb', borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }}
+                  onClick={handleAddTestCase}
+                >
+                  <PlusCircle size={15} /> Add Test Case
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                {newProbTestCases.map((tc, index) => (
+                  <div 
+                    key={`tc-edit-${index}`} 
+                    style={{ 
+                      padding: '1rem', 
+                      backgroundColor: tc.isHidden ? '#f8fafc' : '#f0fdf4', 
+                      border: `1.5px solid ${tc.isHidden ? '#cbd5e1' : '#bbf7d0'}`, 
+                      borderRadius: '10px' 
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                        Test Case #{index + 1}
+                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {/* Visibility Toggle Badge */}
+                        <button
+                          type="button"
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '0.2rem 0.65rem',
+                            borderRadius: '14px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: tc.isHidden ? '#f1f5f9' : '#dcfce7',
+                            color: tc.isHidden ? '#475569' : '#15803d'
+                          }}
+                          onClick={() => handleTestCaseChange(index, 'isHidden', !tc.isHidden)}
+                        >
+                          {tc.isHidden ? '🔒 Private (Hidden)' : '👁️ Public (Sample)'}
+                        </button>
+
+                        {/* Remove Test Case Button */}
+                        {newProbTestCases.length > 1 && (
+                          <button
+                            type="button"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '0.2rem' }}
+                            onClick={() => handleRemoveTestCase(index)}
+                            title="Remove testcase"
+                          >
+                            <X size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Input</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono"
+                          style={{ fontSize: '0.82rem', padding: '0.4rem 0.6rem' }}
+                          placeholder="e.g. nums = [2,7,11,15], target = 9"
+                          value={tc.input}
+                          onChange={(e) => handleTestCaseChange(index, 'input', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Expected Output</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono"
+                          style={{ fontSize: '0.82rem', padding: '0.4rem 0.6rem' }}
+                          placeholder="e.g. [0, 1]"
+                          value={tc.expectedOutput}
+                          onChange={(e) => handleTestCaseChange(index, 'expectedOutput', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ padding: '0.55rem 1.25rem', fontWeight: 600 }}
+                onClick={() => setTeacherView('roster')}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                style={{ backgroundColor: '#2563eb', padding: '0.55rem 1.75rem', fontWeight: 700, fontSize: '0.9rem' }}
+                disabled={isCreatingProblem}
+              >
+                {isCreatingProblem ? 'Publishing Problem...' : '🚀 Publish Problem to Workspace'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (isTeacher && teacherView === 'roster') {
     return (
       <div className="leetcode-workspace">
@@ -246,12 +672,19 @@ export default function CodeGradingModule({ problems, activeRole }) {
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button
               className="leetcode-tab-btn active"
               onClick={() => setTeacherView('roster')}
             >
               <FileText size={14} /> Class Submissions Roster ({submissions.length})
+            </button>
+            <button
+              className="leetcode-tab-btn"
+              style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 700 }}
+              onClick={() => setTeacherView('createProblem')}
+            >
+              <PlusCircle size={14} /> Create New Problem
             </button>
             <button
               className="leetcode-tab-btn"
@@ -526,6 +959,16 @@ export default function CodeGradingModule({ problems, activeRole }) {
             })}
           </select>
 
+          {isTeacher && (
+            <button
+              className="btn-primary"
+              style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem', backgroundColor: '#2563eb' }}
+              onClick={() => setTeacherView('createProblem')}
+            >
+              <PlusCircle size={14} /> Create Problem Studio
+            </button>
+          )}
+
           <span className={currentProblem.difficulty === 'Easy' ? 'leetcode-pill-easy' : 'leetcode-pill-medium'}>
             {currentProblem.difficulty}
           </span>
@@ -659,12 +1102,12 @@ export default function CodeGradingModule({ problems, activeRole }) {
               /* AI Qualitative Review Tab (In Left Main Panel) */
               isExecuting ? (
                 <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-subtle)' }}>
-                  <Sparkles size={36} color="#2563eb" style={{ marginBottom: '0.75rem' }} />
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
-                    Analyzing Code & Security Guardrails...
+                  <div style={{ width: '38px', height: '38px', border: '3px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                    Generating AI Qualitative Review...
                   </h4>
-                  <p style={{ fontSize: '0.82rem' }}>
-                    Executing 6-layer security pipeline, Big-O complexity estimation, and Gemini AI qualitative review.
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-subtle)' }}>
+                    Executing sandbox test cases, AST static analysis, and CodeShield AI review...
                   </p>
                 </div>
               ) : apiError ? (
@@ -1091,6 +1534,7 @@ export default function CodeGradingModule({ problems, activeRole }) {
 
         </div>
       </div>
+
     </div>
   );
 }

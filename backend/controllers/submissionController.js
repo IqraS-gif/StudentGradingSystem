@@ -1,10 +1,20 @@
 const Submission = require('../models/Submission');
 const Problem = require('../models/Problem');
 const AuditLog = require('../models/AuditLog');
+const User = require('../models/User');
+const systemSettingsService = require('../services/systemSettingsService');
 const { executeSandbox, detectForbiddenCode, detectInfiniteLoop } = require('../services/sandboxService');
 const { runGuardrailPipeline } = require('../services/guardrailService');
 const { runCodeGradingPipeline, runPracticeCodeReviewPipeline } = require('../services/aiPipelineService');
 const { extractAndStoreFromAIReview } = require('../services/mem0Service');
+
+async function checkAndBlacklist(userId) {
+  if (systemSettingsService.getSettings().autoBlacklistOnInjection) {
+    await User.findByIdAndUpdate(userId, { isBlacklisted: true, blacklistedAt: new Date() });
+    return true;
+  }
+  return false;
+}
 
 // @route   POST /api/submissions
 // @access  Private/Student
@@ -21,9 +31,6 @@ exports.submitCode = async (req, res, next) => {
     // Arbitrary user code review with safety checks
     // ============================================================
     if (mode === 'practice') {
-      // ── Two-Stage Guardrail Pipeline ──────────────────────────────────────────
-      // Stage 1: Instant rule-based scanner (RegEx + Unicode + Base64 detection)
-      // Stage 2: Groq Llama-Guard LLM detector (runs if Stage 1 doesn't block)
       const guardrailReport = await runGuardrailPipeline(sourceCode, {
         userId: req.user.id,
         mode: 'practice'
@@ -31,8 +38,8 @@ exports.submitCode = async (req, res, next) => {
 
       if (guardrailReport.blocked) {
         const report = guardrailReport.securityReport;
+        const accountBlocked = await checkAndBlacklist(req.user.id);
 
-        // Log blocked attempt to audit trail
         await AuditLog.create({
           user: req.user.id,
           userName: req.user.name,
@@ -43,16 +50,20 @@ exports.submitCode = async (req, res, next) => {
             sandboxStatus: 'SECURITY_VIOLATION',
             score: 0,
             passRate: '0%',
-            guardrailReport: report
+            guardrailReport: report,
+            accountBlocked
           }
         });
 
         return res.status(200).json({
           success: true,
+          accountBlocked,
           submission: {
             mode: 'practice',
             sandboxStatus: 'SECURITY_VIOLATION',
-            errorMessage: `🛡️ Prompt Injection Blocked by Guardrail Pipeline (Stage: ${guardrailReport.stage}) | Risk Score: ${report.riskScore}% | Attack: ${report.attackType} | Severity: ${report.severity}`,
+            errorMessage: accountBlocked
+              ? `⛔ ACCOUNT PERMANENTLY BLACKLISTED: Prompt injection security violation detected. Your account has been suspended and logged out immediately.`
+              : `🛡️ Prompt Injection Blocked by Guardrail Pipeline (Stage: ${guardrailReport.stage}) | Risk Score: ${report.riskScore}% | Attack: ${report.attackType} | Severity: ${report.severity}`,
             score: null,
             passRate: 'N/A (Practice)',
             executionTime: `${report.durationMs}ms`,
@@ -197,12 +208,32 @@ exports.submitCode = async (req, res, next) => {
     const assessGuardrail = await runGuardrailPipeline(sourceCode, { userId: req.user.id, mode: 'assessment', problemId });
     if (assessGuardrail.blocked) {
       const report = assessGuardrail.securityReport;
+      const accountBlocked = await checkAndBlacklist(req.user.id);
+
+      await AuditLog.create({
+        user: req.user.id,
+        userName: req.user.name,
+        userRole: req.user.role,
+        eventType: 'SANDBOX_VIOLATION',
+        inputPreview: `[GUARDRAIL BLOCKED] Mode: assessment | Stage: ${assessGuardrail.stage}`,
+        metadata: {
+          sandboxStatus: 'SECURITY_VIOLATION',
+          score: 0,
+          passRate: '0%',
+          guardrailReport: report,
+          accountBlocked
+        }
+      });
+
       return res.status(200).json({
         success: true,
+        accountBlocked,
         submission: {
           mode: 'assessment',
           sandboxStatus: 'SECURITY_VIOLATION',
-          errorMessage: `Guardrail blocked assessment submission: ${report.attackType} (${report.severity}) — Risk: ${report.riskScore}%`,
+          errorMessage: accountBlocked
+            ? `⛔ ACCOUNT PERMANENTLY BLACKLISTED: Prompt injection security violation detected. Your account has been suspended and logged out immediately.`
+            : `Guardrail blocked assessment submission: ${report.attackType} (${report.severity}) — Risk: ${report.riskScore}%`,
           score: 0,
           passRate: '0/0',
           guardrailReport: report,

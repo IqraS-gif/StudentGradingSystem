@@ -144,6 +144,13 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
         tags: newTags.split(',').map(t => t.trim()).filter(t => t.length > 0),
         codeSnippet: newCode
       });
+      if (data.accountBlocked || data.message?.includes('BLACKISTED') || data.message?.includes('blacklisted')) {
+        localStorage.removeItem('gp_token');
+        localStorage.removeItem('gp_user');
+        alert(data.message || '⛔ ACCOUNT PERMANENTLY BLACKLISTED due to prompt injection security violations.');
+        window.location.reload();
+        return;
+      }
       setDoubts(prev => [data.doubt, ...prev]);
       setShowNewModal(false);
       setNewTitle(''); setNewDesc(''); setNewCode('');

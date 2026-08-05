@@ -22,6 +22,7 @@
  */
 
 const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const {
   sanitizeInput,
   classifyInjectionRisk,
@@ -176,102 +177,173 @@ function buildDoubtAnswerPrompt(sanitizedTitle, sanitizedDesc, codeSnippet, lang
   return wrapUserDataWithDelimiters(sanitizedTitle, sanitizedDesc, codeSnippet, language, mem0Context, teacherNotes);
 }
 
-const Groq = require('groq-sdk');
-
-let groqClientInstance = null;
-function getGroqClient() {
-  if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') return null;
-  if (!groqClientInstance) groqClientInstance = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  return groqClientInstance;
-}
-
-async function callGroqFallback(prompt, jsonMode = false) {
-  const groq = getGroqClient();
-  if (!groq) throw new Error('GROQ_API_KEY not configured for fallback.');
-
-  console.log(`[AIPipeline] ⚡ Calling Groq LLM Fallback (llama-3.3-70b-versatile, jsonMode=${jsonMode})...`);
-  const completion = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: 'You are an expert AI code reviewer and technical tutor for CodeShield AI enterprise LMS. Provide thorough, structured, professional analysis.' },
-      { role: 'user', content: prompt }
-    ],
-    temperature: 0.2,
-    response_format: jsonMode ? { type: 'json_object' } : undefined
-  });
-
-  const text = completion.choices[0]?.message?.content || '';
-  if (text && text.trim().length > 0) {
-    console.log('[AIPipeline] ✅ Groq LLM fallback succeeded!');
-    return text;
+// Helper functions to retrieve all available Gemini and Groq API keys from env
+function getGeminiKeys() {
+  const keys = [];
+  if (process.env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY.includes('your_gemini')) {
+    keys.push(process.env.GEMINI_API_KEY.trim());
   }
-  throw new Error('Groq fallback returned empty content.');
+  for (let i = 2; i <= 10; i++) {
+    const k = process.env[`GEMINI_API_KEY_${i}`];
+    if (k && !k.includes('your_gemini') && !keys.includes(k.trim())) keys.push(k.trim());
+  }
+  if (process.env.GEMINI_API_KEYS) {
+    const list = process.env.GEMINI_API_KEYS.split(',').map(s => s.trim()).filter(Boolean);
+    list.forEach(k => { if (!keys.includes(k)) keys.push(k); });
+  }
+  return keys;
 }
 
-// ============================================================
-// Gemini LLM Call — Two Variants with Retry & Groq Fallback
-// ============================================================
+function getGroqKeys() {
+  const keys = [];
+  if (process.env.GROQ_API_KEY && !process.env.GROQ_API_KEY.includes('your_groq')) {
+    keys.push(process.env.GROQ_API_KEY.trim());
+  }
+  for (let i = 2; i <= 10; i++) {
+    const k = process.env[`GROQ_API_KEY_${i}`];
+    if (k && !k.includes('your_groq') && !keys.includes(k.trim())) keys.push(k.trim());
+  }
+  if (process.env.GROQ_API_KEYS) {
+    const list = process.env.GROQ_API_KEYS.split(',').map(s => s.trim()).filter(Boolean);
+    list.forEach(k => { if (!keys.includes(k)) keys.push(k); });
+  }
+  return keys;
+}
+
 const CANDIDATE_GEMINI_MODELS = [
   'gemini-2.5-flash'
 ];
 
+const CANDIDATE_GROQ_MODELS = [
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768'
+];
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function callGroqFallback(prompt, jsonMode = false) {
+  const groqKeys = getGroqKeys();
+  if (groqKeys.length === 0) throw new Error('GROQ_API_KEY not configured for fallback.');
+
+  const systemContent = jsonMode
+    ? `SYSTEM ROLE: You are a principal software engineer and expert security auditor for CodeShield AI Enterprise LMS.
+
+CRITICAL REVIEW QUALITY INSTRUCTIONS:
+- Provide an extremely thorough, highly analytical code evaluation matching top-tier AI reviewer quality.
+- NEVER output generic or superficial bullet points. Refer explicitly to the student's exact data structures, variable names, logic branches, and loop bounds.
+- Provide 2-3 detailed strengths highlighting specific algorithms, clean practices, or optimal patterns.
+- Provide 2-3 detailed weaknesses addressing exact performance bottlenecks, edge case omissions, or security smells.
+- Provide 2-3 concrete actionable suggestions with code refactoring ideas.
+
+MANDATORY OUTPUT REQUIREMENT:
+Return ONLY a single valid JSON object directly with these root keys (do NOT wrap in "review", "result", or any outer parent object):
+{
+  "overallScore": 8.5,
+  "complexity": { "time": "O(N)", "space": "O(N)" },
+  "difficultyEstimate": "Easy",
+  "strengths": ["Detailed strength referencing student logic and structures"],
+  "weaknesses": ["Detailed weakness addressing specific logic or edge case issues"],
+  "suggestions": ["Actionable suggestion with concrete refactoring advice"],
+  "promptInjectionDetected": false,
+  "promptInjectionRisk": "LOW"
+}`
+    : 'You are an expert AI Computer Science Tutor and Security Auditor for CodeShield AI enterprise LMS. Provide thorough, deep, step-by-step technical guidance with complete code solutions.';
+
+  let lastGroqError = null;
+
+  for (let kIdx = 0; kIdx < groqKeys.length; kIdx++) {
+    const apiKey = groqKeys[kIdx];
+    const groq = new Groq({ apiKey });
+
+    for (const modelName of CANDIDATE_GROQ_MODELS) {
+      try {
+        console.log(`[AIPipeline] ⚡ Trying Groq fallback with Key #${kIdx + 1} (${apiKey.slice(0, 6)}...) on model '${modelName}' (jsonMode=${jsonMode})...`);
+        const completion = await groq.chat.completions.create({
+          model: modelName,
+          messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.2,
+          response_format: jsonMode ? { type: 'json_object' } : undefined
+        });
+
+        const text = completion.choices[0]?.message?.content || '';
+        if (text && text.trim().length > 0) {
+          console.log(`[AIPipeline] ✅ Groq fallback succeeded using model '${modelName}'!`);
+          return text;
+        }
+      } catch (err) {
+        lastGroqError = err;
+        console.warn(`[AIPipeline] Groq Key #${kIdx + 1} model '${modelName}' failed: ${err.message}`);
+      }
+    }
+  }
+
+  throw lastGroqError || new Error('All Groq keys and models failed.');
+}
+
+// ============================================================
+// Gemini LLM Calls — Multi-Key & Multi-Model Rotation Loop
+// ============================================================
 
 /**
  * Standard unstructured Gemini call (used for doubt resolution).
+ * Loops through all available Gemini API keys, then through candidate Gemini models.
+ * Falls back to Groq key & model rotation if all Gemini options fail.
  */
 async function callGeminiLLM(prompt) {
-  const genAI = getGeminiClient();
+  const geminiKeys = getGeminiKeys();
   let lastError = null;
 
-  if (genAI) {
-    for (const modelName of CANDIDATE_GEMINI_MODELS) {
-      const maxRetries = 2;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  if (geminiKeys.length > 0) {
+    for (let kIdx = 0; kIdx < geminiKeys.length; kIdx++) {
+      const apiKey = geminiKeys[kIdx];
+      const genAI = new GoogleGenerativeAI(apiKey);
+
+      for (const modelName of CANDIDATE_GEMINI_MODELS) {
         try {
           const model = genAI.getGenerativeModel({ model: modelName });
           const result = await model.generateContent(prompt);
           const text = result.response.text();
           if (text && text.trim().length > 0) {
-            console.log(`[AIPipeline] Gemini call succeeded using '${modelName}' (attempt ${attempt})`);
+            console.log(`[AIPipeline] ✅ Gemini call succeeded using Key #${kIdx + 1} (${apiKey.slice(0, 6)}...) & model '${modelName}'`);
             return text;
           }
         } catch (err) {
           lastError = err;
-          const is429 = err.message && (err.message.includes('429') || err.message.includes('Quota exceeded'));
-          console.warn(`[AIPipeline] Model '${modelName}' attempt ${attempt} failed: ${err.message}`);
-          if (is429 && attempt < maxRetries) {
-            console.log(`[AIPipeline] 429 Rate Limit hit. Retrying '${modelName}' in 1.5s...`);
-            await sleep(1500);
-          } else {
-            break;
-          }
+          console.warn(`[AIPipeline] Gemini Key #${kIdx + 1} model '${modelName}' failed: ${err.message}`);
         }
       }
     }
   }
 
-  // Failover to Groq LLM
-  console.warn('[AIPipeline] Gemini primary failed or rate-limited. Activating Groq fallback...');
+  // All Gemini keys & models exhausted/rate-limited -> Failover to Groq key rotation!
+  console.warn('[AIPipeline] All Gemini API keys and models exhausted. Activating Groq rotation fallback...');
   try {
     return await callGroqFallback(prompt, false);
   } catch (groqErr) {
-    console.error('[AIPipeline] Groq fallback failed as well:', groqErr.message);
+    console.error('[AIPipeline] Groq fallback rotation failed as well:', groqErr.message);
     throw lastError || groqErr;
   }
 }
 
 /**
- * TECHNIQUE #1 — Schema-enforced Gemini call with Groq Fallback.
+ * TECHNIQUE #1 — Schema-enforced Gemini call with Multi-Key & Multi-Model rotation.
+ * Loops through all available Gemini API keys x candidate Gemini models.
+ * Falls back to Groq key & model rotation if all Gemini options fail.
  */
 async function callGeminiStructured(prompt, schema) {
-  const genAI = getGeminiClient();
+  const geminiKeys = getGeminiKeys();
   let lastError = null;
 
-  if (genAI) {
-    for (const modelName of CANDIDATE_GEMINI_MODELS) {
-      const maxRetries = 2;
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  if (geminiKeys.length > 0) {
+    for (let kIdx = 0; kIdx < geminiKeys.length; kIdx++) {
+      const apiKey = geminiKeys[kIdx];
+      const genAI = new GoogleGenerativeAI(apiKey);
+
+      for (const modelName of CANDIDATE_GEMINI_MODELS) {
         try {
           const model = genAI.getGenerativeModel({
             model: modelName,
@@ -283,30 +355,23 @@ async function callGeminiStructured(prompt, schema) {
           const result = await model.generateContent(prompt);
           const text = result.response.text();
           if (text && text.trim().length > 0) {
-            console.log(`[AIPipeline] Schema-enforced Gemini call succeeded using '${modelName}' (attempt ${attempt})`);
+            console.log(`[AIPipeline] ✅ Schema Gemini call succeeded using Key #${kIdx + 1} (${apiKey.slice(0, 6)}...) & model '${modelName}'`);
             return text;
           }
         } catch (err) {
           lastError = err;
-          const is429 = err.message && (err.message.includes('429') || err.message.includes('Quota exceeded'));
-          console.warn(`[AIPipeline] Schema model '${modelName}' attempt ${attempt} failed: ${err.message}`);
-          if (is429 && attempt < maxRetries) {
-            console.log(`[AIPipeline] 429 Rate Limit hit. Retrying '${modelName}' in 1.5s...`);
-            await sleep(1500);
-          } else {
-            break;
-          }
+          console.warn(`[AIPipeline] Gemini Key #${kIdx + 1} schema model '${modelName}' failed: ${err.message}`);
         }
       }
     }
   }
 
-  // Failover to Groq Structured Fallback
-  console.warn('[AIPipeline] Gemini schema call failed or rate-limited. Activating Groq structured fallback...');
+  // All Gemini keys & models exhausted/rate-limited -> Failover to Groq structured rotation!
+  console.warn('[AIPipeline] All Gemini API keys and models exhausted for schema call. Activating Groq structured rotation fallback...');
   try {
     return await callGroqFallback(prompt, true);
   } catch (groqErr) {
-    console.error('[AIPipeline] Groq structured fallback failed as well:', groqErr.message);
+    console.error('[AIPipeline] Groq structured fallback rotation failed as well:', groqErr.message);
     throw lastError || groqErr;
   }
 }
@@ -318,40 +383,62 @@ async function callGeminiStructured(prompt, schema) {
 function parseStructuredJSON(rawText, fallback) {
   if (!rawText) return fallback;
 
+  let parsed = null;
+
   // Strategy 1: Fenced JSON code block  ```json ... ```
   try {
     const m = rawText.match(/```json\s*([\s\S]*?)\s*```/i);
-    if (m) return JSON.parse(m[1].trim());
+    if (m) parsed = JSON.parse(m[1].trim());
   } catch (_) { }
 
   // Strategy 2: Any fenced code block  ``` ... ```
-  try {
-    const m = rawText.match(/```\s*([\s\S]*?)\s*```/);
-    if (m) return JSON.parse(m[1].trim());
-  } catch (_) { }
+  if (!parsed) {
+    try {
+      const m = rawText.match(/```\s*([\s\S]*?)\s*```/);
+      if (m) parsed = JSON.parse(m[1].trim());
+    } catch (_) { }
+  }
 
   // Strategy 3: First complete {...} block in the text
-  try {
-    const m = rawText.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0].trim());
-  } catch (_) { }
+  if (!parsed) {
+    try {
+      const m = rawText.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0].trim());
+    } catch (_) { }
+  }
 
   // Strategy 4: Try the whole rawText directly
-  try {
-    return JSON.parse(rawText.trim());
-  } catch (_) { }
+  if (!parsed) {
+    try {
+      parsed = JSON.parse(rawText.trim());
+    } catch (_) { }
+  }
 
-  // Strategy 5: Try stripping any leading/trailing prose before/after the JSON object
-  try {
-    const start = rawText.indexOf('{');
-    const end = rawText.lastIndexOf('}');
-    if (start !== -1 && end !== -1 && end > start) {
-      return JSON.parse(rawText.slice(start, end + 1));
+  // Strategy 5: Try stripping any leading/trailing prose
+  if (!parsed) {
+    try {
+      const start = rawText.indexOf('{');
+      const end = rawText.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        parsed = JSON.parse(rawText.slice(start, end + 1));
+      }
+    } catch (_) { }
+  }
+
+  if (!parsed) {
+    console.warn('[AIPipeline] JSON parse failed — all strategies exhausted. Raw output:\n', rawText?.slice(0, 500));
+    return fallback;
+  }
+
+  // Auto-unwrap nested objects if LLM wrapped output in e.g. { "review": { ... } } or { "data": { ... } }
+  if (typeof parsed === 'object' && parsed !== null) {
+    const wrapper = parsed.review || parsed.result || parsed.data || parsed.analysis || parsed.evaluation || parsed.response;
+    if (wrapper && typeof wrapper === 'object' && (wrapper.overallScore !== undefined || wrapper.complexity || wrapper.possibleCause)) {
+      parsed = wrapper;
     }
-  } catch (_) { }
+  }
 
-  console.warn('[AIPipeline] JSON parse failed — all strategies exhausted. Raw output:\n', rawText?.slice(0, 500));
-  return fallback;
+  return parsed;
 }
 
 // Ensures any LLM field (string, array, or object) is always saved as a plain string

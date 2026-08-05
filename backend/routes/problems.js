@@ -7,11 +7,11 @@ router.use(protect);
 
 router.route('/')
   .get(getProblems)
-  .post(authorize('teacher'), createProblem);
+  .post(authorize('teacher', 'admin'), createProblem);
 
 router.route('/:id')
   .get(getProblem)
-  .put(authorize('teacher'), updateProblem)
-  .delete(authorize('teacher'), deleteProblem);
+  .put(authorize('teacher', 'admin'), updateProblem)
+  .delete(authorize('teacher', 'admin'), deleteProblem);
 
 module.exports = router;

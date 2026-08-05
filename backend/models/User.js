@@ -27,6 +27,13 @@ const UserSchema = new mongoose.Schema({
     enum: ['student', 'teacher', 'admin'],
     default: 'student'
   },
+  isBlacklisted: {
+    type: Boolean,
+    default: false
+  },
+  blacklistedAt: {
+    type: Date
+  },
   // Mem0 student learning profile
   mem0Profile: {
     level: { type: String, default: 'Beginner' },
