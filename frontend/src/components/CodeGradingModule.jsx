@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, CheckCircle2, XCircle, AlertTriangle, Cpu, History, Award, Code2, ShieldAlert, Sparkles, BookOpen, FileText, Lightbulb, Check, UserCheck, Search, Filter, Edit3, Save, X, Terminal, ChevronUp, ChevronDown, PlusCircle } from 'lucide-react';
+import { Play, CheckCircle2, XCircle, AlertTriangle, Cpu, History, Award, Code2, ShieldAlert, Sparkles, BookOpen, FileText, Lightbulb, Check, UserCheck, Search, Filter, Edit3, Save, X, Terminal, ChevronUp, ChevronDown, PlusCircle, Loader2 } from 'lucide-react';
 import { submissionsAPI, problemsAPI } from '../services/api';
 
 export default function CodeGradingModule({ problems, setProblems, activeRole }) {
@@ -82,18 +82,15 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
   // Load submissions
   const loadSubmissions = () => {
     setSubmissionsLoading(true);
-    const query = isTeacher ? '' : `?problemId=${selectedProblemId}&mode=assessment`;
-    submissionsAPI.getAll(query)
+    submissionsAPI.getAll('')
       .then(data => setSubmissions(data.submissions || []))
       .catch(err => console.error('[CodeGrading] Submissions fetch:', err.message))
       .finally(() => setSubmissionsLoading(false));
   };
 
   useEffect(() => {
-    if (selectedProblemId || isTeacher) {
-      loadSubmissions();
-    }
-  }, [selectedProblemId, teacherView, isTeacher]);
+    loadSubmissions();
+  }, [teacherView, isTeacher]);
 
   // Sync state when problems list arrives
   useEffect(() => {
@@ -315,9 +312,16 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
     );
   }
 
+  // Filter submissions specifically for the currently selected problem in IDE
+  const problemSubmissions = submissions.filter(sub => {
+    if (!selectedProblemId) return true;
+    const pId = typeof sub.problem === 'object' ? (sub.problem?._id || sub.problem?.id) : sub.problem;
+    return String(pId) === String(selectedProblemId);
+  });
+
   // Filtered roster submissions for Teacher
   const filteredRoster = submissions.filter(sub => {
-    const pMatch = rosterFilterProblem === 'ALL' || (sub.problem?._id === rosterFilterProblem || sub.problem?.id === rosterFilterProblem);
+    const pMatch = rosterFilterProblem === 'ALL' || (sub.problem?._id === rosterFilterProblem || sub.problem?.id === rosterFilterProblem || String(sub.problem) === String(rosterFilterProblem));
     const sName = typeof sub.student === 'object' ? sub.student?.name : (sub.studentName || '');
     const sMatch = !rosterSearchStudent || sName.toLowerCase().includes(rosterSearchStudent.toLowerCase());
     return pMatch && sMatch;
@@ -1022,7 +1026,7 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
                   className={`leetcode-tab-btn ${leftTab === 'submissions' ? 'active' : ''}`}
                   onClick={() => setLeftTab('submissions')}
                 >
-                  <History size={14} /> Submissions ({submissions.length})
+                  <History size={14} /> Submissions ({problemSubmissions.length})
                 </button>
               )}
             </div>
@@ -1238,7 +1242,7 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-subtle)', marginBottom: '0.85rem' }}>
                   💡 Click any row below to load that submission's exact code into the editor and view its AI Qualitative Evaluation.
                 </p>
-                {submissions.length === 0 ? (
+                {problemSubmissions.length === 0 ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-subtle)' }}>No past assessment submissions recorded for this problem yet.</p>
                 ) : (
                   <div className="data-table-container">
@@ -1254,7 +1258,7 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
                         </tr>
                       </thead>
                       <tbody>
-                        {submissions.map((sub, idx) => {
+                        {problemSubmissions.map((sub, idx) => {
                           const dateStr = sub.createdAt
                             ? new Date(sub.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : 'Just now';
@@ -1371,16 +1375,22 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
                       className="leetcode-btn-run"
                       onClick={() => handleRunCode(false)}
                       disabled={isExecuting}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                     >
-                      <Play size={14} /> Run
+                      {isExecuting
+                        ? <><Loader2 size={14} className="spin-icon" /> Running...</>
+                        : <><Play size={14} /> Run</>}
                     </button>
 
                     <button
                       className="leetcode-btn-submit"
                       onClick={() => handleRunCode(true)}
                       disabled={isExecuting}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                     >
-                      <Award size={14} /> {isExecuting ? 'Submitting...' : 'Submit'}
+                      {isExecuting
+                        ? <><Loader2 size={14} className="spin-icon" /> Submitting...</>
+                        : <><Award size={14} /> Submit</>}
                     </button>
                   </>
                 ) : (
@@ -1388,9 +1398,11 @@ export default function CodeGradingModule({ problems, setProblems, activeRole })
                     className="btn-primary"
                     onClick={() => handleRunCode(false)}
                     disabled={isExecuting}
-                    style={{ padding: '0.35rem 0.9rem', fontSize: '0.82rem' }}
+                    style={{ padding: '0.35rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                   >
-                    <Sparkles size={14} /> {isExecuting ? 'Analyzing...' : 'Analyze & Review Code'}
+                    {isExecuting
+                      ? <><Loader2 size={14} className="spin-icon" /> Analyzing...</>
+                      : <><Sparkles size={14} /> Analyze &amp; Review Code</>}
                   </button>
                 )}
               </div>
