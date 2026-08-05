@@ -208,11 +208,21 @@ Student Input
 
 ---
 
+## ⚖️ Design Tradeoffs
+
+| Tradeoff | What we chose |
+|:---|:---|
+| **Prompt security vs. latency** | Running a heavy LLM on every input to detect injections was too slow. We use a cheap fast model as a gate first — only clean inputs reach the main LLM. Guardrail latency dropped from ~3s to ~0.4s. |
+| **Real-time roster accuracy vs. API call frequency** | Querying the API on every problem dropdown change caused stale counts. We fetch all submissions once and filter client-side — roster updates are instant with no extra round-trips. |
+
 ---
 
 ## 🔧 Work in Progress
 
-- **Multilingual Prompt Injection Detection** — Initial testing completed. The current pipeline correctly identifies injection attempts in ~75% of non-English inputs (Arabic, Urdu, French) tested so far. The LLM-based classifier in Layer 3 generalises reasonably well across languages; the main gap is the CSV rule scanner, which remains English-only and is the next target for expansion.
+> [!NOTE]
+> **~75% multilingual injection detection rate achieved** — tested across Arabic, Urdu, and French prompt injection variants.
+
+- **Multilingual Prompt Injection Detection** — Initial testing done. The LLM-based Layer 3 classifier generalises reasonably well to non-English inputs; the CSV rule scanner remains the gap as it is English-only and is the next target for expansion.
 
 ---
 
