@@ -129,6 +129,30 @@ export default function CodeGradingModule({ problems, activeRole }) {
     }
   };
 
+  const handleSelectSubmission = (sub) => {
+    const code = sub.code || sub.sourceCode || '';
+    if (code) {
+      if (mode === 'assessment') {
+        setUserCode(code);
+      } else {
+        setPracticeCode(code);
+      }
+    }
+    setCurrentExecution({
+      mode: sub.mode || mode,
+      status: sub.sandboxStatus || sub.status || 'ALL_PASSED',
+      score: sub.score,
+      passRate: sub.passRate || '100% test cases passed',
+      executionTime: sub.executionTime || '0.05s',
+      memoryUsed: sub.memoryUsed || '14 MB',
+      testCaseResults: sub.testCaseResults || [],
+      errorMessage: sub.errorMessage || '',
+      aiReview: sub.aiReview || {}
+    });
+    setLeftTab('aiReview');
+    setRightBottomTab('result');
+  };
+
   const handleInspect = (sub) => {
     setInspectingSubmission(sub);
     setOverrideScore(sub.score !== null ? sub.score : 8.0);
@@ -527,27 +551,6 @@ export default function CodeGradingModule({ problems, activeRole }) {
             <BookOpen size={14} /> Practice Sandbox
           </button>
         </div>
-
-        {/* Security Injection Triggers */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-          <button
-            className="btn-secondary"
-            style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
-            onClick={handleTestInfiniteLoop}
-            title="Inject while True loop"
-          >
-            <AlertTriangle size={12} color="#d97706" /> Inject TLE
-          </button>
-
-          <button
-            className="btn-secondary"
-            style={{ padding: '0.2rem 0.5rem', fontSize: '0.72rem' }}
-            onClick={handleTestSecurityViolation}
-            title="Inject os.system call"
-          >
-            <ShieldAlert size={12} color="#dc2626" /> Inject Syscall
-          </button>
-        </div>
       </div>
 
       {/* LeetCode Main Split Grid (Left Panel & Right Panel) */}
@@ -786,9 +789,12 @@ export default function CodeGradingModule({ problems, activeRole }) {
             ) : (
               /* Submissions History Tab */
               <div>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.85rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.4rem' }}>
                   Submissions History for "{currentProblem.title}"
                 </h3>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-subtle)', marginBottom: '0.85rem' }}>
+                  💡 Click any row below to load that submission's exact code into the editor and view its AI Qualitative Evaluation.
+                </p>
                 {submissions.length === 0 ? (
                   <p style={{ fontSize: '0.82rem', color: 'var(--text-subtle)' }}>No past assessment submissions recorded for this problem yet.</p>
                 ) : (
@@ -800,7 +806,8 @@ export default function CodeGradingModule({ problems, activeRole }) {
                           <th>Score</th>
                           <th>Time</th>
                           <th>Memory</th>
-                          <th>Timestamp</th>
+                          <th>Submitted</th>
+                          <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -809,7 +816,12 @@ export default function CodeGradingModule({ problems, activeRole }) {
                             ? new Date(sub.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : 'Just now';
                           return (
-                            <tr key={`subhist-${sub._id || sub.id || idx}`}>
+                            <tr
+                              key={`subhist-${sub._id || sub.id || idx}`}
+                              onClick={() => handleSelectSubmission(sub)}
+                              style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                              title="Click to view full AI evaluation & submitted code"
+                            >
                               <td>
                                 <span className={`status-badge ${sub.sandboxStatus === 'ALL_PASSED' ? 'badge-approved' : 'badge-rejected'}`}>
                                   {sub.sandboxStatus}
@@ -821,6 +833,18 @@ export default function CodeGradingModule({ problems, activeRole }) {
                               <td style={{ fontSize: '0.78rem' }}>{sub.executionTime}</td>
                               <td style={{ fontSize: '0.78rem' }}>{sub.memoryUsed}</td>
                               <td style={{ fontSize: '0.76rem', color: 'var(--text-subtle)' }}>{dateStr}</td>
+                              <td>
+                                <button
+                                  className="btn-secondary"
+                                  style={{ padding: '0.2rem 0.55rem', fontSize: '0.74rem', fontWeight: 600, color: 'var(--primary-blue)', borderColor: 'var(--primary-blue-border)' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectSubmission(sub);
+                                  }}
+                                >
+                                  View AI Evaluation &rarr;
+                                </button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -837,7 +861,7 @@ export default function CodeGradingModule({ problems, activeRole }) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%' }}>
 
           {/* Upper Code Editor Panel */}
-          <div className="leetcode-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: showConsole ? '320px' : '580px' }}>
+          <div className="leetcode-panel" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="leetcode-panel-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#16a34a' }}>
                 <Code2 size={16} />
@@ -861,7 +885,7 @@ export default function CodeGradingModule({ problems, activeRole }) {
             </div>
 
             {/* Dark Code Editor - Fills vertical height */}
-            <div className="leetcode-editor-container" style={{ flex: 1, maxHeight: 'none', height: '100%', minHeight: showConsole ? '240px' : '520px' }}>
+            <div className="leetcode-editor-container">
               <div className="leetcode-line-numbers">
                 {lineNumbers.map(n => (
                   <div key={`line-${n}`}>{n}</div>
@@ -869,8 +893,9 @@ export default function CodeGradingModule({ problems, activeRole }) {
               </div>
               <textarea
                 className="leetcode-textarea"
-                style={{ flex: 1, height: '100%', minHeight: '100%' }}
+                style={{ flex: 1, height: `${Math.max(340, lineNumbers.length * 22.4 + 30)}px` }}
                 value={codeText}
+                rows={lineNumbers.length}
                 onChange={(e) => mode === 'assessment' ? setUserCode(e.target.value) : setPracticeCode(e.target.value)}
                 placeholder="Write your solution code here..."
               />

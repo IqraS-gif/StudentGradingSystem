@@ -76,9 +76,9 @@ async function seed() {
       { input: 'nums = [-1,-2,-3,-4,-5], target = -8', expectedOutput: '[2,4]', isHidden: true }
     ],
     starterCode: {
-      python: `def twoSum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        diff = target - num\n        if diff in seen:\n            return [seen[diff], i]\n        seen[num] = i\n    return []`,
-      java: `class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        Map<Integer, Integer> map = new HashMap<>();\n        for (int i = 0; i < nums.length; i++) {\n            int diff = target - nums[i];\n            if (map.containsKey(diff)) return new int[]{ map.get(diff), i };\n            map.put(nums[i], i);\n        }\n        return new int[]{};\n    }\n}`,
-      cpp: `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        unordered_map<int,int> seen;\n        for(int i=0;i<nums.size();i++){\n            if(seen.count(target-nums[i])) return {seen[target-nums[i]],i};\n            seen[nums[i]]=i;\n        }\n        return {};\n    }\n};`
+      python: `def twoSum(nums, target):\n    # TODO: Implement your solution here\n    pass`,
+      java: `class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // TODO: Implement your solution here\n        return new int[]{};\n    }\n}`,
+      cpp: `#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        // TODO: Implement your solution here\n        return {};\n    }\n};`
     },
     createdBy: teacher._id
   });
@@ -96,9 +96,9 @@ async function seed() {
       { input: 's = "{"', expectedOutput: 'false', isHidden: true }
     ],
     starterCode: {
-      python: `def isValid(s):\n    stack = []\n    mapping = {')': '(', '}': '{', ']': '['}\n    for char in s:\n        if char in mapping:\n            top = stack.pop() if stack else '#'\n            if mapping[char] != top: return False\n        else:\n            stack.append(char)\n    return not stack`,
-      java: `class Solution {\n    public boolean isValid(String s) {\n        Deque<Character> stack = new ArrayDeque<>();\n        for(char c : s.toCharArray()) {\n            if(c=='(') stack.push(')');\n            else if(c=='{') stack.push('}');\n            else if(c=='[') stack.push(']');\n            else if(stack.isEmpty() || stack.pop()!=c) return false;\n        }\n        return stack.isEmpty();\n    }\n}`,
-      cpp: `class Solution {\npublic:\n    bool isValid(string s) {\n        stack<char> st;\n        for(char c:s){\n            if(c=='('||c=='{'||c=='[') st.push(c);\n            else{\n                if(st.empty()) return false;\n                if(c==')'&&st.top()!='(') return false;\n                if(c=='}'&&st.top()!='{') return false;\n                if(c==']'&&st.top()!='[') return false;\n                st.pop();\n            }\n        }\n        return st.empty();\n    }\n};`
+      python: `def isValid(s):\n    # TODO: Implement your solution here\n    pass`,
+      java: `class Solution {\n    public boolean isValid(String s) {\n        // TODO: Implement your solution here\n        return false;\n    }\n}`,
+      cpp: `#include <string>\nusing namespace std;\n\nclass Solution {\npublic:\n    bool isValid(string s) {\n        // TODO: Implement your solution here\n        return false;\n    }\n};`
     },
     createdBy: teacher._id
   });
@@ -116,9 +116,9 @@ async function seed() {
       { input: 'root = [1,2,3,4,5]', expectedOutput: '[[1],[2,3],[4,5]]', isHidden: true }
     ],
     starterCode: {
-      python: `from collections import deque\n\ndef levelOrder(root):\n    if not root: return []\n    res, q = [], deque([root])\n    while q:\n        level = []\n        for _ in range(len(q)):\n            node = q.popleft()\n            level.append(node.val)\n            if node.left: q.append(node.left)\n            if node.right: q.append(node.right)\n        res.append(level)\n    return res`,
-      java: `class Solution {\n    public List<List<Integer>> levelOrder(TreeNode root) {\n        List<List<Integer>> res = new ArrayList<>();\n        if(root==null) return res;\n        Queue<TreeNode> q = new LinkedList<>();\n        q.add(root);\n        while(!q.isEmpty()){\n            int size=q.size();\n            List<Integer> level=new ArrayList<>();\n            for(int i=0;i<size;i++){\n                TreeNode cur=q.poll();\n                level.add(cur.val);\n                if(cur.left!=null) q.add(cur.left);\n                if(cur.right!=null) q.add(cur.right);\n            }\n            res.add(level);\n        }\n        return res;\n    }\n}`,
-      cpp: `class Solution {\npublic:\n    vector<vector<int>> levelOrder(TreeNode* root) {\n        vector<vector<int>> res;\n        if(!root) return res;\n        queue<TreeNode*> q;\n        q.push(root);\n        while(!q.empty()){\n            int n=q.size();\n            vector<int> level;\n            for(int i=0;i<n;i++){\n                auto node=q.front();q.pop();\n                level.push_back(node->val);\n                if(node->left) q.push(node->left);\n                if(node->right) q.push(node->right);\n            }\n            res.push_back(level);\n        }\n        return res;\n    }\n};`
+      python: `def levelOrder(root):\n    # TODO: Implement your solution here\n    return []`,
+      java: `class Solution {\n    public List<List<Integer>> levelOrder(TreeNode root) {\n        // TODO: Implement your solution here\n        return new ArrayList<>();\n    }\n}`,
+      cpp: `#include <vector>\nusing namespace std;\n\nclass Solution {\npublic:\n    vector<vector<int>> levelOrder(TreeNode* root) {\n        // TODO: Implement your solution here\n        return {};\n    }\n};`
     },
     createdBy: teacher._id
   });

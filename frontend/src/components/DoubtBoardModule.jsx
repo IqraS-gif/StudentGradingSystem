@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MessageSquare, Plus, CheckCircle, XCircle, Edit3, ShieldAlert, Cpu, User, Sparkles, Filter, Pin, Code2, CheckCircle2, ArrowLeft, Copy, Clock, Layers, Award, AlertTriangle, Lightbulb, Maximize2, Minimize2 } from 'lucide-react';
+import { MessageSquare, Plus, CheckCircle, XCircle, Edit3, ShieldAlert, Cpu, User, Sparkles, Filter, Pin, Code2, CheckCircle2, ArrowLeft, Copy, Clock, Layers, Award, AlertTriangle, Lightbulb, Maximize2, Minimize2, Lock, GitFork, MoreVertical, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { doubtsAPI } from '../services/api';
 
 // Intelligent code formatter helper: un-escapes newlines & formats single-line code blocks safely
@@ -216,6 +216,41 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
     const matchesTag = filterTag === 'ALL' || (d.tags && d.tags.includes(filterTag));
     return matchesSearch && matchesTag;
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset page when filter or search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterTag]);
+
+  const totalCount = filteredDoubts.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+
+  const startIndex = totalCount === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endIndex = Math.min(safePage * pageSize, totalCount);
+
+  const paginatedDoubts = filteredDoubts.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (safePage > 3) pages.push('...');
+      const start = Math.max(2, safePage - 1);
+      const end = Math.min(totalPages - 1, safePage + 1);
+      for (let i = start; i <= end; i++) {
+        if (!pages.includes(i)) pages.push(i);
+      }
+      if (safePage < totalPages - 2) pages.push('...');
+      if (!pages.includes(totalPages)) pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code || '');
@@ -834,28 +869,61 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
   // ============================================================
   return (
     <div className="doubt-board-module">
-      {/* Top Banner & Action */}
-      <div className="card-panel" style={{ padding: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <MessageSquare color="#2563eb" size={20} />
-              AI Doubt Resolution Board & Human Approval Portal
-            </h2>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-subtle)', marginTop: '0.2rem' }}>
-              State Machine: <strong style={{ color: 'var(--text-main)' }}>Student Submission → 6-Layer Security & Mem0 Processing → Draft Pending → Teacher Review → Approved & Published</strong>
-            </p>
+      {/* Top Banner & Stepper Action Header */}
+      <div className="card-panel" style={{ padding: '1.25rem 1.5rem', borderRadius: '12px', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Soft Blue Square Message Icon Box */}
+            <div style={{ width: '46px', height: '46px', borderRadius: '12px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0 }}>
+              <MessageSquare size={22} />
+            </div>
+            <div>
+              <h2 className="card-title" style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.15rem' }}>
+                AI Doubt Resolution Board &amp; Human Approval Portal
+              </h2>
+              {/* Horizontal Pipeline Stepper */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.35rem', flexWrap: 'wrap', fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>State Machine:</span>
+                
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: '#2563eb', color: '#ffffff', fontSize: '0.7rem', fontWeight: 700 }}>1</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Student Submission</span>
+                
+                <span style={{ color: '#cbd5e1' }}>&rarr;</span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #2563eb', color: '#2563eb', fontSize: '0.7rem', fontWeight: 700 }}>2</span>
+                <span>6-Layer Security &amp; Mem0 Processing</span>
+                
+                <span style={{ color: '#cbd5e1' }}>&rarr;</span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #2563eb', color: '#2563eb', fontSize: '0.7rem', fontWeight: 700 }}>3</span>
+                <span>Draft Pending</span>
+
+                <span style={{ color: '#cbd5e1' }}>&rarr;</span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #94a3b8', color: '#64748b', fontSize: '0.7rem', fontWeight: 700 }}>4</span>
+                <span>Teacher Review</span>
+
+                <span style={{ color: '#cbd5e1' }}>&rarr;</span>
+
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', border: '1.5px solid #94a3b8', color: '#64748b', fontSize: '0.7rem', fontWeight: 700 }}>5</span>
+                <span>Approved &amp; Published</span>
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             {activeRole === 'student' && (
-              <button className="btn-primary" onClick={() => setShowNewModal(true)}>
+              <button
+                className="btn-primary"
+                style={{ backgroundColor: '#2563eb', padding: '0.6rem 1.25rem', borderRadius: '8px', fontSize: '0.86rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', border: 'none', cursor: 'pointer' }}
+                onClick={() => setShowNewModal(true)}
+              >
                 <Plus size={16} /> Post Doubt to AI Engine
               </button>
             )}
 
             {activeRole === 'teacher' && (
-              <div className="alert-box alert-warning" style={{ margin: 0, padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+              <div className="alert-box alert-warning" style={{ margin: 0, padding: '0.45rem 0.85rem', fontSize: '0.8rem', borderRadius: '8px' }}>
                 <Cpu size={16} /> <strong>{pendingDoubts.length} Pending AI Drafts</strong> require instructor review
               </div>
             )}
@@ -864,12 +932,14 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="card-panel" style={{ padding: '0.85rem 1.25rem', marginBottom: '1.25rem' }}>
+      <div className="card-panel" style={{ padding: '0.75rem 1.25rem', marginBottom: '1.25rem', borderRadius: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '260px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: '260px', position: 'relative' }}>
+            <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
               className="form-input"
+              style={{ paddingLeft: '2.4rem', fontSize: '0.85rem', borderRadius: '8px' }}
               placeholder="Search doubts by keyword or topic..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -878,32 +948,32 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Filter size={15} color="var(--text-subtle)" />
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-subtle)' }}>Topic Tag:</span>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Topic Tag:</span>
             <select
               className="form-select"
-              style={{ width: 'auto', fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+              style={{ width: 'auto', fontSize: '0.82rem', padding: '0.3rem 0.75rem', borderRadius: '8px' }}
               value={filterTag}
               onChange={(e) => setFilterTag(e.target.value)}
             >
               <option value="ALL">All Topics</option>
-              <option value="Graphs">Graphs & Traversal</option>
-              <option value="Recursion">Recursion & DP</option>
-              <option value="Arrays">Arrays & Pointers</option>
+              <option value="Graphs">Graphs &amp; Traversal</option>
+              <option value="Recursion">Recursion &amp; DP</option>
+              <option value="Arrays">Arrays &amp; Pointers</option>
               <option value="DFS">DFS / BFS</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Compact Master Questions Roster */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {filteredDoubts.length === 0 ? (
+      {/* Master Questions Roster List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        {paginatedDoubts.length === 0 ? (
           <div className="card-panel" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-subtle)' }}>
             <MessageSquare size={36} color="#cbd5e1" style={{ marginBottom: '0.5rem' }} />
             <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>No doubts match your search query or role visibility filter.</p>
           </div>
         ) : (
-          filteredDoubts.map((doubt) => {
+          paginatedDoubts.map((doubt) => {
             const dStatus = getDoubtStatus(doubt);
             const dId = getDoubtId(doubt);
             const sName = getStudentName(doubt);
@@ -915,61 +985,204 @@ export default function DoubtBoardModule({ doubts, setDoubts, mem0Profile, activ
               return (
                 <div
                   key={dId}
-                  className={`doubt-card status-${dStatus === 'APPROVED' ? 'approved' : dStatus === 'PENDING_REVIEW' ? 'pending' : 'rejected'}`}
-                  style={{ cursor: 'pointer', opacity: isStudentPending ? 0.92 : 1 }}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderLeft: dStatus === 'APPROVED' ? '4px solid #16a34a' : '4px solid #2563eb',
+                    borderRadius: '10px',
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1.1rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                    transition: 'all 0.15s ease'
+                  }}
                   onClick={() => openDetailView(doubt)}
                 >
-                  <div className="doubt-header-row" style={{ margin: 0 }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 className="doubt-title" style={{ fontSize: '1.05rem', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {isStudentPending && <span style={{ fontSize: '1rem' }}>🔒</span>}
-                        {doubt.title}
-                      </h3>
+                  {/* Left Icon Circle */}
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    backgroundColor: dStatus === 'APPROVED' ? '#dcfce7' : '#dbeafe',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {dStatus === 'APPROVED' ? (
+                      (doubt.tags || []).some(t => /graph|dfs/i.test(t)) || /DFS|Graph/i.test(doubt.title) ? (
+                        <GitFork size={22} color="#16a34a" />
+                      ) : (
+                        <CheckCircle2 size={22} color="#16a34a" />
+                      )
+                    ) : (
+                      <Lock size={20} color="#2563eb" />
+                    )}
+                  </div>
 
-                      {/* Compact Meta Bar */}
-                      <div className="doubt-meta-bar">
-                        <span className="avatar-badge" style={{ width: '22px', height: '22px', fontSize: '0.68rem' }}>{sInitials}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{sName}</span>
-                        <span>•</span>
-                        <span className="doubt-lang-badge">{doubt.language}</span>
-                        <span>•</span>
-                        <span>{formatDate(doubt.createdAt)}</span>
+                  {/* Center Info Section */}
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ fontSize: '1.02rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.4rem', lineHeight: 1.35 }}>
+                      {doubt.title}
+                    </h3>
 
-                        {(doubt.tags || []).map((t, i) => (
-                          <span key={`rt-${i}`} className="doubt-tag-pill">#{t}</span>
-                        ))}
-                      </div>
-
-                      {/* Student-only: Pending waiting note */}
-                      {isStudentPending && (
-                        <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#3b82f6', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                          <span style={{ fontSize: '0.85rem' }}>⏳</span> AI draft generated — awaiting instructor review &amp; approval before answer is published.
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <span className={`status-badge ${dStatus === 'APPROVED' ? 'badge-approved' : dStatus === 'PENDING_REVIEW' ? 'badge-pending' : 'badge-rejected'}`}>
-                        {dStatus === 'PENDING_REVIEW' ? 'DRAFT: PENDING TEACHER APPROVAL' : dStatus}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#64748b' }}>
+                      {/* Student Initials Avatar */}
+                      <span style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: '0.68rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {sInitials}
                       </span>
+                      <span style={{ fontWeight: 700, color: '#0f172a' }}>{sName}</span>
+                      <span>•</span>
+                      <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: '0.74rem', padding: '0.1rem 0.5rem', borderRadius: '6px' }}>{doubt.language}</span>
+                      <span>•</span>
+                      <span>{formatDate(doubt.createdAt)}</span>
 
-                      <button
-                        className={isStudentPending ? 'btn-secondary' : 'leetcode-btn-submit'}
-                        style={{ padding: '0.3rem 0.75rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openDetailView(doubt);
-                        }}
-                      >
-                        {isStudentPending ? '⏳ Track Status' : 'Inspect Question & AI Solution →'}
-                      </button>
+                      {(doubt.tags || []).map((t, i) => (
+                        <span key={`rt-${i}`} style={{ backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.74rem', fontWeight: 600, padding: '0.1rem 0.55rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                          #{t}
+                        </span>
+                      ))}
                     </div>
+
+                    {/* Pending Sub-Notice */}
+                    {isStudentPending && (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.76rem', color: '#1d4ed8', backgroundColor: '#eff6ff', padding: '0.35rem 0.75rem', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span>⏳</span> AI draft generated — awaiting instructor review &amp; approval before answer is published.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Status & Action Column */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                    {dStatus === 'APPROVED' ? (
+                      <>
+                        <span style={{ backgroundColor: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          ✓ APPROVED
+                        </span>
+                        <button
+                          style={{ backgroundColor: '#e6f4ea', color: '#15803d', border: '1px solid #86efac', padding: '0.4rem 0.85rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDetailView(doubt);
+                          }}
+                        >
+                          Inspect Question &amp; AI Solution &rarr;
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ backgroundColor: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          ⏳ DRAFT: PENDING TEACHER APPROVAL
+                        </span>
+                        <button
+                          style={{ backgroundColor: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', padding: '0.4rem 0.85rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDetailView(doubt);
+                          }}
+                        >
+                          👨‍🏫 Track Status
+                        </button>
+                      </>
+                    )}
+
+                    <MoreVertical size={16} color="#94a3b8" style={{ cursor: 'pointer' }} />
                   </div>
                 </div>
               );
             })();
           })
         )}
+      </div>
+
+      {/* Dynamic Pagination Footer */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '1rem' }}>
+        <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: 500 }}>
+          Showing {startIndex} to {endIndex} of {totalCount} doubts
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: '#ffffff',
+              color: safePage === 1 ? '#cbd5e1' : '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: safePage === 1 ? 'not-allowed' : 'pointer'
+            }}
+            disabled={safePage === 1}
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            <ChevronLeft size={16} />
+          </button>
+
+          {getPageNumbers().map((p, i) => (
+            p === '...' ? (
+              <span key={`dots-${i}`} style={{ color: '#94a3b8', fontSize: '0.82rem', padding: '0 0.2rem' }}>...</span>
+            ) : (
+              <button
+                key={`page-${p}`}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: p === safePage ? 'none' : '1px solid #e2e8f0',
+                  backgroundColor: p === safePage ? '#2563eb' : '#ffffff',
+                  color: p === safePage ? '#ffffff' : '#475569',
+                  fontWeight: p === safePage ? 700 : 600,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setCurrentPage(p)}
+              >
+                {p}
+              </button>
+            )
+          ))}
+
+          <button
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              backgroundColor: '#ffffff',
+              color: safePage === totalPages ? '#cbd5e1' : '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: safePage === totalPages ? 'not-allowed' : 'pointer'
+            }}
+            disabled={safePage === totalPages}
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <select
+            className="form-select"
+            style={{ fontSize: '0.8rem', padding: '0.25rem 0.6rem', borderRadius: '8px' }}
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+          >
+            <option value={5}>5 per page</option>
+            <option value={10}>10 per page</option>
+            <option value={25}>25 per page</option>
+            <option value={50}>50 per page</option>
+          </select>
+        </div>
       </div>
 
       {/* New Doubt Modal */}

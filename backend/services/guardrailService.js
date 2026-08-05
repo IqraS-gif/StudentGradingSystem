@@ -30,6 +30,7 @@
  */
 
 const Groq = require('groq-sdk');
+const { loadCSVSignatures } = require('./csvSignatureLoader');
 
 // ============================================================
 // STAGE 1-A: Input Sanitization & Obfuscation Normalization
@@ -182,6 +183,18 @@ const RULE_SIGNATURES = [
   { regex: /\{\{[\s\S]*?\}\}/g, label: 'Template Injection', severity: 'HIGH' },
   { regex: /\{%[\s\S]*?%\}/g, label: 'Server-Side Template Injection', severity: 'CRITICAL' },
 ];
+
+// ── Dynamically extend RULE_SIGNATURES from malicious_prompts.csv ────────────
+// Loaded once at module startup — zero runtime overhead per request.
+try {
+  const csvRules = loadCSVSignatures();
+  if (csvRules.length > 0) {
+    RULE_SIGNATURES.push(...csvRules);
+    console.log(`[GuardrailService] Merged ${csvRules.length} CSV-derived signatures into rule engine.`);
+  }
+} catch (csvErr) {
+  console.warn('[GuardrailService] CSV signature load failed (non-fatal):', csvErr.message);
+}
 
 /**
  * Stage 1 Scanner.
