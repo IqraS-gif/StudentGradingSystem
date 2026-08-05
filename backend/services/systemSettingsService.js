@@ -1,5 +1,5 @@
 let systemSettings = {
-  autoBlacklistOnInjection: true
+  autoBlacklistOnInjection: false
 };
 
 module.exports = {

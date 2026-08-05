@@ -17,7 +17,7 @@ export default function SecurityAdminModule({ activeRole, user }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Auto-Blacklist & Blacklist Roster State
-  const [autoBlacklist, setAutoBlacklist] = useState(true);
+  const [autoBlacklist, setAutoBlacklist] = useState(false);
   const [blacklistedUsers, setBlacklistedUsers] = useState([]);
   const [isUpdatingSetting, setIsUpdatingSetting] = useState(false);
 
@@ -25,7 +25,7 @@ export default function SecurityAdminModule({ activeRole, user }) {
   const fetchSettingsAndBlacklist = async () => {
     try {
       const [sRes, bRes] = await Promise.all([
-        analyticsAPI.getSettings().catch(() => ({ settings: { autoBlacklistOnInjection: true } })),
+        analyticsAPI.getSettings().catch(() => ({ settings: { autoBlacklistOnInjection: false } })),
         analyticsAPI.getBlacklistedUsers().catch(() => ({ users: [] }))
       ]);
       if (sRes?.settings?.autoBlacklistOnInjection !== undefined) {
